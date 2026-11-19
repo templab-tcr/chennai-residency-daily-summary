@@ -212,29 +212,11 @@ render();
 </script>
 <script type="module">
   const COLLECTION = "Tcr-summary-daily";
+  const { auth, db: fsDb, signIn, signOut, onAuthStateChanged, collection, doc, setDoc, getDocs } = window.fb;
 
-  // Wait until Firebase is loaded
-  await new Promise(r => setTimeout(r, 0));
-  const { auth, db, signIn, signOut, onAuthStateChanged, collection, doc, setDoc, getDocs } = window.fb;
-
-  // Sign in prompt (call from a button)
-  window.cloudSignIn = async () => {
-    const pw = prompt("Enter password for abc@gmail.com");
-    if (!pw) return;
-    try {
-      await signIn(auth, "abc@gmail.com", pw);
-      document.getElementById("saveState").textContent = "Signed in to cloud";
-    } catch (e) {
-      alert("Sign-in failed: " + e.message);
-    }
-  };
-
-  window.cloudSignOut = () => signOut(auth);
-
-  // Push one day's totals to Firestore
-  window.pushDayToCloud = async (dayKey) => {
-    const led = ledgerFor(dayKey);
-    await setDoc(doc(db, COLLECTION, dayKey), {
+  // Build one day's document from the ledger, without calling ledgerFor()
+  function dayDoc(dayKey, led) {
+    return {
       date: dayKey,
       opening: led.opening,
       dayIncome: led.dayIncome,
@@ -250,34 +232,56 @@ render();
       checkInCount: led.checkInCount,
       checkOutCount: led.checkOutCount,
       updatedAt: new Date().toISOString()
-    }, { merge: true });
+    };
+  }
+
+  window.cloudSignIn = async () => {
+    const pw = prompt("Enter password for abc@gmail.com");
+    if (!pw) return;
+    try {
+      await signIn(auth, "abc@gmail.com", pw);
+    } catch (e) {
+      alert("Sign-in failed: " + e.message);
+    }
   };
 
-  // Push every day in the ledger (use once, or after big changes)
+  window.cloudSignOut = () => signOut(auth);
+
+  window.pushDayToCloud = async (dayKey) => {
+    const led = ledger().find(x => x.date === dayKey);
+    if (!led) return;
+    await setDoc(doc(fsDb, COLLECTION, dayKey), dayDoc(dayKey, led), { merge: true });
+  };
+
   window.pushAllToCloud = async () => {
-    const days = ledger();
-    let n = 0;
-    for (const d of days) {
-      if (d.checkInCount || d.checkOutCount || d.totalExpenses || d.cashReceived) {
-        await pushDayToCloud(d.date);
-        n++;
+    const days = ledger().filter(d =>
+      d.checkInCount || d.checkOutCount || d.totalExpenses || d.cashReceived
+    );
+    let ok = 0, failed = [];
+    for (const led of days) {
+      try {
+        await setDoc(doc(fsDb, COLLECTION, led.date), dayDoc(led.date, led), { merge: true });
+        ok++;
+      } catch (e) {
+        failed.push(led.date);
+        console.error("Upload failed for", led.date, e);
       }
     }
-    alert(`Uploaded ${n} days to the cloud.`);
+    alert(`Uploaded ${ok} days.` + (failed.length ? ` Failed: ${failed.length} (see console).` : ""));
   };
 
-  // Load daily totals from Firestore
   window.pullFromCloud = async () => {
-    const snap = await getDocs(collection(db, COLLECTION));
+    const snap = await getDocs(collection(fsDb, COLLECTION));
     const rows = [];
     snap.forEach(d => rows.push(d.data()));
     console.log("Cloud days:", rows);
-    alert(`Found ${rows.length} days in the cloud. See console for details.`);
+    alert(`Found ${rows.length} days in the cloud. See console.`);
   };
 
   onAuthStateChanged(auth, user => {
     document.getElementById("saveState").textContent =
       user ? "Signed in to cloud" : "Not signed in to cloud";
   });
+</script>
 </script>
 </body></html>
