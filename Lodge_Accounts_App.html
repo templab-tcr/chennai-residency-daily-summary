@@ -145,50 +145,29 @@ function backup() {
 
 function persist() {
   try {
-    // Save data in browser local storage
     localStorage.setItem(STORE, JSON.stringify(db));
 
     document.getElementById('saveState').textContent =
       fileHandle ? 'Saving shared file…' : 'Saved in this browser';
 
-    // Save data to the selected OneDrive JSON file
     if (fileHandle) {
       saveToHandle();
     }
 
-    // Automatically sync the selected day to Firestore
-if (
-  typeof pushDayToCloud === 'function' &&
-  typeof selectedDate !== 'undefined' &&
-  window.fb && window.fb.auth && window.fb.auth.currentUser
-) {
-  pushDayToCloud(selectedDate)
-    .then(() => {
-      document.getElementById('saveState').textContent = 'Synced to cloud';
-    })
-    .catch(e => {
-      document.getElementById('saveState').textContent = 'Cloud sync failed';
-      console.error('Cloud sync failed:', e);
-      alert('Cloud sync failed: ' + e.message);
-    });
-}
+    const user = window.fb && window.fb.auth && window.fb.auth.currentUser;
 
-
-async function saveToHandle() {
-  try {
-    let w = await fileHandle.createWritable();
-
-    await w.write(JSON.stringify(db, null, 2));
-
-    await w.close();
-
-    document.getElementById('saveState').textContent =
-      'Saved to data file';
-
+    if (typeof pushDayToCloud === 'function' && user) {
+      pushDayToCloud(selectedDate)
+        .then(() => {
+          document.getElementById('saveState').textContent = 'Synced to cloud';
+        })
+        .catch(e => {
+          console.error('Cloud sync failed:', e);
+        });
+    }
   } catch (e) {
-    alert(
-      'Could not update the data file. Download a JSON backup instead.'
-    );
+    document.getElementById('saveState').textContent = 'Export a backup';
+    console.error('Save failed:', e);
   }
 }
 
