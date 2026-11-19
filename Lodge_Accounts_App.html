@@ -157,22 +157,20 @@ function persist() {
     }
 
     // Automatically sync the selected day to Firestore
-    if (
-      typeof pushDayToCloud === 'function' &&
-      typeof selectedDate !== 'undefined' &&
-      typeof fbAuth !== 'undefined' &&
-      fbAuth.currentUser
-    ) {
-      pushDayToCloud(selectedDate).catch(e => {
-        console.error('Cloud sync failed:', e);
-      });
-    }
-
-  } catch (e) {
-    document.getElementById('saveState').textContent =
-      'Export a backup';
-    console.error('Save failed:', e);
-  }
+if (
+  typeof pushDayToCloud === 'function' &&
+  typeof selectedDate !== 'undefined' &&
+  window.fb && window.fb.auth && window.fb.auth.currentUser
+) {
+  pushDayToCloud(selectedDate)
+    .then(() => {
+      document.getElementById('saveState').textContent = 'Synced to cloud';
+    })
+    .catch(e => {
+      document.getElementById('saveState').textContent = 'Cloud sync failed';
+      console.error('Cloud sync failed:', e);
+      alert('Cloud sync failed: ' + e.message);
+    });
 }
 
 
@@ -270,18 +268,20 @@ render();
     alert(`Uploaded ${ok} days.` + (failed.length ? ` Failed: ${failed.length} (see console).` : ""));
   };
 
-  window.pullFromCloud = async () => {
-    const snap = await getDocs(collection(fsDb, COLLECTION));
-    const rows = [];
-    snap.forEach(d => rows.push(d.data()));
-    console.log("Cloud days:", rows);
-    alert(`Found ${rows.length} days in the cloud. See console.`);
-  };
-
-  onAuthStateChanged(auth, user => {
-    document.getElementById("saveState").textContent =
-      user ? "Signed in to cloud" : "Not signed in to cloud";
+window.pullFromCloud = async () => {
+  const snap = await getDocs(collection(fsDb, COLLECTION));
+  let merged = 0;
+  snap.forEach(d => {
+    const c = d.data();
+    // Store cloud day summary so you can compare it
+    db.cloudDays = db.cloudDays || {};
+    db.cloudDays[c.date] = c;
+    merged++;
   });
+  persist();
+  alert(`Loaded ${merged} days from the cloud.`);
+  render();
+};
 </script>
 </script>
 </body></html>
