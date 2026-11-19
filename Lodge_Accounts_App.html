@@ -211,7 +211,7 @@ async function openDataFile(){try{if(!window.showOpenFilePicker){alert('Direct l
 render();
 </script>
 <script type="module">
-  const COLLECTION = "Tcr-summary-daily";
+  const COLLECTION = "tcr-summary-daily";
   const { auth, db: fsDb, signIn, signOut, onAuthStateChanged, collection, doc, setDoc, getDocs } = window.fb;
 
   // Build one day's document from the ledger, without calling ledgerFor()
