@@ -214,10 +214,10 @@ render();
   }
 
   window.cloudSignIn = async () => {
-    const pw = prompt("Enter password for abc@gmail.com");
+    const pw = prompt("Enter password for tcr@gmail.com");
     if (!pw) return;
     try {
-      await signIn(auth, "abc@gmail.com", pw);
+      await signIn(auth, "tcr@gmail.com", pw);
     } catch (e) {
       alert("Sign-in failed: " + e.message);
     }
