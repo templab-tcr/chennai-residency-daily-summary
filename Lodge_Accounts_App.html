@@ -1,32 +1,48 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Lodge Accounts</title>
-  <script type="module">
+  
+<script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-  import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut }
-    from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-  import { getFirestore, collection, doc, setDoc, getDocs }
-    from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import {
+    getAuth,
+    signInWithEmailAndPassword,
+    onAuthStateChanged,
+    signOut
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  import {
+    getFirestore,
+    collection,
+    doc,
+    setDoc,
+    getDocs
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-  // Paste YOUR config from Step 1
- const firebaseConfig = {
-  apiKey: "AIzaSyA-21H0JfnLY0azUyqGfI2G8aMXbSG0zqA",
-  authDomain: "tcr-summary-daily.firebaseapp.com",
-  projectId: "tcr-summary-daily",
-  storageBucket: "tcr-summary-daily.firebasestorage.app",
-  messagingSenderId: "1128134623",
-  appId: "1:1128134623:web:5e963a38505e02d202f66a",
-  measurementId: "G-DWRDEX7JB3"
-};
+  const firebaseConfig = {
+    apiKey: "YOUR_EXISTING_API_KEY",
+    authDomain: "tcr-summary-daily.firebaseapp.com",
+    projectId: "tcr-summary-daily",
+    storageBucket: "tcr-summary-daily.firebasestorage.app",
+    messagingSenderId: "1128134623",
+    appId: "1:1128134623:web:5e963a38505e02d202f66a",
+    measurementId: "G-DWRDEX7JB3"
+  };
 
   const app = initializeApp(firebaseConfig);
+
   window.fb = {
     auth: getAuth(app),
     db: getFirestore(app),
     signIn: signInWithEmailAndPassword,
     signOut,
     onAuthStateChanged,
-    collection, doc, setDoc, getDocs
+    collection,
+    doc,
+    setDoc,
+    getDocs
   };
+</script>
+
+
 </script>
   
   <style>
@@ -190,11 +206,22 @@ window.ledger = ledger;
 window.getAppDb = () => db;
 render();
 </script>
+
 <script type="module">
   const COLLECTION = "tcr-summary-daily";
-  const { auth, db: fsDb, signIn, signOut, onAuthStateChanged, collection, doc, setDoc, getDocs } = window.fb;
 
-  // Build one day's document from the ledger, without calling ledgerFor()
+  const {
+    auth,
+    db: fsDb,
+    signIn,
+    signOut,
+    onAuthStateChanged,
+    collection,
+    doc,
+    setDoc,
+    getDocs
+  } = window.fb;
+
   function dayDoc(dayKey, led) {
     return {
       date: dayKey,
@@ -217,71 +244,115 @@ render();
 
   window.cloudSignIn = async () => {
     const pw = prompt("Enter password for tcr@gmail.com");
-   
-window.cloudSignIn = async () => {
-  const pw = prompt("Enter password for tcr@gmail.com");
+    if (!pw) return;
 
-  if (!pw) {
-    alert("Sign-in cancelled.");
-    return;
-  }
+    try {
+      await signIn(auth, "tcr@gmail.com", pw);
+      alert("Successfully signed in to Firebase!");
+    } catch (e) {
+      console.error("Sign-in error:", e);
+      alert("Sign-in failed: " + e.message);
+    }
+  };
 
-  try {
-    await signIn(auth, "tcr@gmail.com", pw);
+  window.cloudSignOut = async () => {
+    try {
+      await signOut(auth);
+      alert("Signed out from cloud.");
+    } catch (e) {
+      alert("Sign-out failed: " + e.message);
+    }
+  };
 
-    document.getElementById("cloudStatus").textContent =
-      "Cloud: Connected as tcr@gmail.com";
+  onAuthStateChanged(auth, user => {
+    const status = document.getElementById("cloudStatus");
 
-    alert("Successfully signed in to Firebase!");
-  } catch (e) {
-    console.error("Firebase sign-in error:", e);
-
-    document.getElementById("cloudStatus").textContent =
-      "Cloud: Sign-in failed";
-
-    alert("Sign-in failed: " + e.message);
-  }
-};
-
-
-  window.cloudSignOut = () => signOut(auth);
+    if (status) {
+      status.textContent = user
+        ? "Cloud: Connected as " + user.email
+        : "Cloud: Not connected";
+    }
+  });
 
   window.pushDayToCloud = async (dayKey) => {
-    const led = ledger().find(x => x.date === dayKey);
+    if (!auth.currentUser) {
+      alert("Please sign in to cloud first.");
+      return;
+    }
+
+    const led = window.ledger().find(x => x.date === dayKey);
     if (!led) return;
-    await setDoc(doc(fsDb, COLLECTION, dayKey), dayDoc(dayKey, led), { merge: true });
+
+    await setDoc(
+      doc(fsDb, COLLECTION, dayKey),
+      dayDoc(dayKey, led),
+      { merge: true }
+    );
   };
 
   window.pushAllToCloud = async () => {
-    const days = ledger().filter(d =>
-      d.checkInCount || d.checkOutCount || d.totalExpenses || d.cashReceived
+    if (!auth.currentUser) {
+      alert("Please sign in to cloud first.");
+      return;
+    }
+
+    const days = window.ledger().filter(d =>
+      d.checkInCount || d.checkOutCount ||
+      d.totalExpenses || d.cashReceived
     );
-    let ok = 0, failed = [];
+
+    let ok = 0;
+    let failed = [];
+
     for (const led of days) {
       try {
-        await setDoc(doc(fsDb, COLLECTION, led.date), dayDoc(led.date, led), { merge: true });
+        await setDoc(
+          doc(fsDb, COLLECTION, led.date),
+          dayDoc(led.date, led),
+          { merge: true }
+        );
         ok++;
       } catch (e) {
         failed.push(led.date);
         console.error("Upload failed for", led.date, e);
       }
     }
-    alert(`Uploaded ${ok} days.` + (failed.length ? ` Failed: ${failed.length} (see console).` : ""));
+
+    alert(
+      "Uploaded " + ok + " days." +
+      (failed.length ? " Failed: " + failed.length + " (see console)." : "")
+    );
   };
 
-window.pullFromCloud = async () => {
-  const snap = await getDocs(collection(fsDb, COLLECTION));
-  let merged = 0;
-  snap.forEach(d => {
-    const c = d.data();
-    // Store cloud day summary so you can compare it
-    db.cloudDays = db.cloudDays || {};
-    db.cloudDays[c.date] = c;
-    merged++;
-  });
-  persist();
-  alert(`Loaded ${merged} days from the cloud.`);
-  render();
-};
+  window.pullFromCloud = async () => {
+    if (!auth.currentUser) {
+      alert("Please sign in to cloud first.");
+      return;
+    }
+
+    try {
+      const snap = await getDocs(collection(fsDb, COLLECTION));
+      const appDb = window.getAppDb();
+
+      appDb.cloudDays = appDb.cloudDays || {};
+
+      let merged = 0;
+
+      snap.forEach(d => {
+        const c = d.data();
+        appDb.cloudDays[c.date] = c;
+        merged++;
+      });
+
+      window.persist();
+      window.render();
+
+      alert("Loaded " + merged + " days from the cloud.");
+    } catch (e) {
+      console.error("Cloud download failed:", e);
+      alert("Cloud download failed: " + e.message);
+    }
+  };
 </script>
+
 </body></html>
