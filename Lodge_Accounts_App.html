@@ -217,13 +217,32 @@ render();
 
   window.cloudSignIn = async () => {
     const pw = prompt("Enter password for tcr@gmail.com");
-    if (!pw) return;
-    try {
-      await signIn(auth, "tcr@gmail.com", pw);
-    } catch (e) {
-      alert("Sign-in failed: " + e.message);
-    }
-  };
+   
+window.cloudSignIn = async () => {
+  const pw = prompt("Enter password for tcr@gmail.com");
+
+  if (!pw) {
+    alert("Sign-in cancelled.");
+    return;
+  }
+
+  try {
+    await signIn(auth, "tcr@gmail.com", pw);
+
+    document.getElementById("cloudStatus").textContent =
+      "Cloud: Connected as tcr@gmail.com";
+
+    alert("Successfully signed in to Firebase!");
+  } catch (e) {
+    console.error("Firebase sign-in error:", e);
+
+    document.getElementById("cloudStatus").textContent =
+      "Cloud: Sign-in failed";
+
+    alert("Sign-in failed: " + e.message);
+  }
+};
+
 
   window.cloudSignOut = () => signOut(auth);
 
